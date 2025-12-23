@@ -635,8 +635,13 @@ osa_status_t OSA_EventSet(osa_event_handle_t eventHandle, osa_event_flags_t flag
     osa_zephyr_eventHandle_t *z_eventHandle = (osa_zephyr_eventHandle_t *)eventHandle;
 
     OSA_RETURN_IF_HANDLE_IS_NULL(z_eventHandle, KOSA_StatusError)
-    OSA_RETURN_IF_WRONG_CHECKMARK(z_eventHandle->checkmark, OSA_CHECKMARK_EVENT, KOSA_StatusError)
-
+    //OSA_RETURN_IF_WRONG_CHECKMARK(z_eventHandle->checkmark, OSA_CHECKMARK_EVENT, KOSA_StatusError)
+    if(z_eventHandle->checkmark != 0){
+        OSA_RETURN_IF_WRONG_CHECKMARK(z_eventHandle->checkmark, OSA_CHECKMARK_EVENT, KOSA_StatusError)
+    }
+    else{
+        printk("\n!!!Checkmark is 0!!!\n");
+    }
     k_event_post(&z_eventHandle->handle, flagsToSet);
 
     return KOSA_StatusSuccess;

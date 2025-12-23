@@ -59,6 +59,9 @@
 #define HCI_CMD_BT_HOST_SLEEP_CONFIG_OCF          0x59U
 #define HCI_CMD_BT_HOST_SLEEP_CONFIG_PARAM_LENGTH 2U
 
+#define HCI_CMD_BT_DISABLE_LEPC_TIMER_OCF           0x9FU
+#define HCI_CMD_BT_DISABLE_LEPC_CONFIG_PARAM_LENGTH 0
+
 #define HCI_EVT_PS_SLEEP_OCF 0x20U
 
 #define get_opcode(ocg, ocf) (((uint16_t)(ocg) & (uint16_t)0x3FU) << 10) | (uint16_t)((ocf)&0x3FFU)
@@ -120,10 +123,10 @@
  */
 #if defined(gPlatformDisableSetBtCalDataAnnex100_d) && (gPlatformDisableSetBtCalDataAnnex100_d == 1)
 // For dual ant case
-#define BT_CAL_DATA_ANNEX_FRONT_END_LOSS 0x02U
+#define BT_CAL_DATA_ANNEX_FRONT_END_LOSS 0x06U
 #elif defined(gPlatformDisableSetBtCalDataAnnex100_d) && (gPlatformDisableSetBtCalDataAnnex100_d == 0)
 // For share antenna case or diversty case(ble only case)
-#define BT_CAL_DATA_ANNEX_FRONT_END_LOSS 0x03U
+#define BT_CAL_DATA_ANNEX_FRONT_END_LOSS 0x06U
 #endif
 
 /*
@@ -245,9 +248,18 @@ static int PLATFORM_HandleBlePowerStateEvent(ble_ps_event_t psEvent);
  */
 static int PLATFORM_BleSetHostSleepConfig(void);
 
+#if defined(gPlatformDisableLEPCTimer_d) && (gPlatformDisableLEPCTimer_d > 0)
+/*!
+ * \brief Disable Controller LE Power Control timer and the supported feature bits
+ *
+ * \return int return status: >=0 for success, <0 for errors
+ */
+static int PLATFORM_DisableLEPCTimer(void);
+#endif
+
 void BLE_MCI_WAKEUP_DONE0_DriverIRQHandler(void);
 
-static void PLATFORM_FillInHciCmdMsg(uint8_t *pbuf, uint16_t opcode, uint8_t msg_sz, const uint8_t *msg_payload);
+static void PLATFORM_FillInHciCmdMsg(uint8_t *pmsg, uint16_t opcode, uint8_t msg_sz, const uint8_t *msg_payload);
 
 /* -------------------------------------------------------------------------- */
 /*                               Private memory                               */
@@ -280,16 +292,24 @@ const uint8_t hci_cal_data_params[HCI_CMD_STORE_BT_CAL_DATA_PARAM_LENGTH] = {
     0x00U,                            //  Action : 0x00
     0x01U,                            //  Type : Not use CheckSum
     0x1CU,                            //  File Length : 0x1C
+    0x37U, 0x35U, 0x1CU, 0x00U,
+    0x1CU, 0x00U, 0x00U, 0x00U,
+    0x01U, 0x71U, 0x0FU, 0x06U,       
+    0x28U, 0x00U, 0x00U, 0x00U,
+    0xC0U, 0xC6U, 0x2DU, 0x00U,
+    0xF7U, 0X01U, 0xD6U, 0xDAU,
+    0x95U, 0xC0U, 0xF0U, 0x00U,
+/*    
     0x37U,                            //  BT Annex Type : BT CFG
     0x71U,                            //  Checksum : 0x71
     0x1CU,                            //  Annex Length LSB: 0x001C
     0x00U,                            //  Annex Length MSB: 0x001C
-    0xFFU,                            //  Pointer For Next Annex[0] : 0xFFFFFFFF
-    0xFFU,                            //  Pointer For Next Annex[1] : 0xFFFFFFFF
-    0xFFU,                            //  Pointer For Next Annex[2] : 0xFFFFFFFF
-    0xFFU,                            //  Pointer For Next Annex[3] : 0xFFFFFFFF
+    0x1CU,                            //  Pointer For Next Annex[0] : 0xFFFFFFFF
+    0x00U,                            //  Pointer For Next Annex[1] : 0xFFFFFFFF
+    0x00U,                            //  Pointer For Next Annex[2] : 0xFFFFFFFF
+    0x00U,                            //  Pointer For Next Annex[3] : 0xFFFFFFFF
     0x01U,                            //  Annex Version : 0x01
-    0x7CU,                            //  External Xtal Calibration Value : 0x7C
+    0x77U,                            //  External Xtal Calibration Value : 0x7C
     0x04U,                            //  Initial TX Power : 0x04
     BT_CAL_DATA_ANNEX_FRONT_END_LOSS, //  Front End Loss : 0x02 or 0x03
     0x28U,                            //  BT Options :
@@ -307,19 +327,20 @@ const uint8_t hci_cal_data_params[HCI_CMD_STORE_BT_CAL_DATA_PARAM_LENGTH] = {
     0xC6U,                            //  UART Baud Rate[1] : 0x002DC6C0(3000000)
     0x2DU,                            //  UART Baud Rate[2] : 0x002DC6C0(3000000)
     0x00U,                            //  UART Baud Rate[3] : 0x002DC6C0(3000000)
-    0x00U,                            //  BdAddress[0] : 0x000000000000
-    0x00U,                            //  BdAddress[1] : 0x000000000000
-    0x00U,                            //  BdAddress[2] : 0x000000000000
-    0x00U,                            //  BdAddress[3] : 0x000000000000
-    0x00U,                            //  BdAddress[4] : 0x000000000000
-    0x00U,                            //  BdAddress[5] : 0x000000000000
+    0x89U,                            //  BdAddress[0] : 0x000000000000
+    0x12U,                            //  BdAddress[1] : 0x000000000000
+    0x21U,                            //  BdAddress[2] : 0x000000000000
+    0xDAU,                            //  BdAddress[3] : 0x000000000000
+    0x95U,                            //  BdAddress[4] : 0x000000000000
+    0xC0U,                            //  BdAddress[5] : 0x000000000000
     0xF0U,                            //  Encr_Key_Len[3:0]: MinEncrKeyLen = 0x0
                                       //  Encr_Key_Len[7:4]: MaxEncrKeyLen = 0xF
 #if defined(gPlatformEnableTxPowerChangeWithCountry_d) && (gPlatformEnableTxPowerChangeWithCountry_d == 0)
     0x00U, //  RegionCode : 0x00
 #else
     0x00U, //  Reserved : 0x00
-#endif /* gPlatformEnableTxPowerChangeWithCountry_d */
+#endif
+*/
 };
 
 #if !defined(gPlatformDisableSetBtCalDataAnnex100_d) || (gPlatformDisableSetBtCalDataAnnex100_d == 0)
@@ -331,7 +352,13 @@ const uint8_t hci_cal_data_params[HCI_CMD_STORE_BT_CAL_DATA_PARAM_LENGTH] = {
  */
 const uint8_t hci_cal_data_annex100_params[HCI_CMD_STORE_BT_CAL_DATA_PARAM_ANNEX100_LENGTH] = {
     /*                   BT_HW_INFO   START              */
-    0x64U, //  Annex Type : 0x64
+    0x64U, 0X8FU, 0x10U, 0x00U,
+    0xFFU, 0xFFU, 0xFFU, 0xFFU,
+    0x01U, 0x00U, 0x00U, 0x00U,
+    0x01U, 0x00U, 0x00U, 0x00U,
+    /*                   BT_HW_INFO   END              */
+
+/*  0x64U, //  Annex Type : 0x64
     0x00U, //  CheckSum: Annex100 ignores checksum
     0x10U, //  Length-In-Byte : 0x0010
     0x00U, //  Length-In-Byte : 0x0010
@@ -344,14 +371,15 @@ const uint8_t hci_cal_data_annex100_params[HCI_CMD_STORE_BT_CAL_DATA_PARAM_ANNEX
     0x00U, // Ext_Ant Gain : Bit[4:1]   Ext_Ant Present : Bit[0]
 #else
     0x00U, // Reserved
-#endif                                           /* gPlatformEnableTxPowerChangeWithCountry_d */
+#endif                                            gPlatformEnableTxPowerChangeWithCountry_d 
     BT_CAL_DATA_ANNEX_100_EPA_FEM_MASK_LOW_BYTE, // BT_HW_INFO_EPA_FEM_Mask
     0x00U,                                       // BT_HW_INFO_EPA_FEM_Mask
     0x01U,                                       // Ext_LNA Present : Bit[0]   Ext_LNA Gain : Bit[7:1]
     0x00U,                                       // multipurpose mask
     BT_CAL_DATA_ANNEX_100_LNA_FEM_MASK_LOW_BYTE, // BT / LE ext LNA FEM BITMASK
-    0x00U,                                       // BT / LE ext LNA FEM BITMASK
-    /*                   BT_HW_INFO   END              */
+    0x00U,                                       // BT / LE ext LNA FEM BITMASK 
+*/
+
 };
 #endif
 /* -------------------------------------------------------------------------- */
@@ -429,6 +457,11 @@ void PLATFORM_VendorSpecificInit(void)
 
     (void)PLATFORM_BleSetHostSleepConfig();
 
+#if defined(gPlatformDisableLEPCTimer_d) && (gPlatformDisableLEPCTimer_d == 1)
+    /* Allow Controller to disable LEPC*/
+    (void)PLATFORM_DisableLEPCTimer();
+#endif
+
 #if !defined(gPlatformDisableBleLowPower_d) || (gPlatformDisableBleLowPower_d == 0)
     /* Allow Controller to enter low power */
     (void)PLATFORM_EnableBleLowPower();
@@ -446,13 +479,14 @@ int PLATFORM_TerminateBle(void)
             break;
         }
 
-        if (PLATFORM_TerminateHciLink() != 0)
+        /* Power off CPU2 first */
+        if (PLATFORM_TerminateControllers((uint8_t)connBle_c) != 0) /* MISRA CID 26829044 */
         {
             ret = -1;
             break;
         }
 
-        if (PLATFORM_TerminateControllers((uint8_t)connBle_c) != 0) /* MISRA CID 26829044 */
+        if (PLATFORM_TerminateHciLink() != 0)
         {
             ret = -2;
             break;
@@ -487,7 +521,7 @@ int PLATFORM_ResetBle(void)
         if ((PLATFORM_GetRunningControllers() & conn802_15_4_c) != 0U)
         {
             /* Currently the CPU2 is running the combo firmware, so we should reset using this firmware */
-            PLATFORM_ResetOt();
+            ret = PLATFORM_ResetOt();
         }
         else
         {
@@ -655,6 +689,12 @@ int PLATFORM_RequestBleWakeUp(void)
          * completely awake and ready to receive a message */
         NVIC_EnableIRQ(BLE_MCI_WAKEUP_DONE0_IRQn);
 
+        /* Make sure to clear wake up event */
+        if (OSA_EventClear((osa_event_handle_t)wakeUpEventGroup, (uint32_t)ble_awake_event) != KOSA_StatusSuccess)
+        {
+            ret = -1;
+        }
+
         /* Wake up BLE core with PMU BLE_WAKEUP bit
          * This bit is maintained until we receive a BLE_MCI_WAKEUP_DONE0
          * interrupt */
@@ -713,6 +753,11 @@ int PLATFORM_HandleControllerPowerState(void)
     return ret;
 }
 
+bool PLATFORM_IsControllerActive(void)
+{
+    return ((blePowerState == ble_awake_state) && (hciInitialized == true));
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              Private functions                             */
 /* -------------------------------------------------------------------------- */
@@ -740,15 +785,9 @@ static int PLATFORM_TerminateHciLink(void)
 
     do
     {
-        /* Force wake up CPU2 before send IMU_MSG_CONTROL_SHUTDOWN in HAL_ImuDeinit() */
-        PMU_EnableBleWakeup(0x1U);
-
         /* Deinitialize IMU first
          * Ignoring return value because kStatus_HAL_ImumcError means it was already deinitialize */
-        (void)HAL_ImuDeinit(kIMU_LinkCpu2Cpu3, 0);
-
-        /* Clear CPU2 wake up bit after HAL_ImuDeinit() */
-        PMU_DisableBleWakeup(0x1U);
+        (void)HAL_ImuDeinit(kIMU_LinkCpu2Cpu3, 1);
 
         /* Deinitialize IMUMC first */
         if (HAL_ImumcDeinit(hci_imumc_handle) != kStatus_HAL_ImumcSuccess)
@@ -768,6 +807,14 @@ static bool PLATFORM_IsHciLinkReady(void)
 
 static bool PLATFORM_IsBleAwake(void)
 {
+    /* The power state information of CPU2 is managed by a software state machine.
+     * This is an additional hardware check to make sure of the CPU2 power state
+     * Sending a HCI message while CPU2 is in low power causes message loss
+     */
+    if (BLE_POWER_STATUS() != BLE_POWER_ON)
+    {
+        blePowerState = ble_asleep_state;
+    }
     return (blePowerState != ble_asleep_state);
 }
 
@@ -886,15 +933,10 @@ static int PLATFORM_HandleBlePowerStateEvent(ble_ps_event_t psEvent)
             {
                 case ble_asleep_event:
                     blePowerState = ble_asleep_state;
-                    /* Make sure to clear wake up event */
-                    if (OSA_EventClear((osa_event_handle_t)wakeUpEventGroup, (uint32_t)ble_awake_event) !=
-                        KOSA_StatusSuccess)
-                    {
-                        ret = -1;
-                    }
                     break;
 
                 default:
+                    /* nothing to do */
                     break;
             }
         }
@@ -909,6 +951,7 @@ static int PLATFORM_HandleBlePowerStateEvent(ble_ps_event_t psEvent)
                     break;
 
                 default:
+                    /* nothing to do */
                     break;
             }
         }
@@ -945,11 +988,33 @@ static int PLATFORM_BleSetHostSleepConfig(void)
     return ret;
 }
 
-static void PLATFORM_FillInHciCmdMsg(uint8_t *pbuf, uint16_t opcode, uint8_t msg_sz, const uint8_t *msg_payload)
+#if defined(gPlatformDisableLEPCTimer_d) && (gPlatformDisableLEPCTimer_d == 1)
+static int PLATFORM_DisableLEPCTimer(void)
 {
-    pbuf[0] = HCI_COMMAND_PACKET;
-    pbuf[1] = (uint8_t)(opcode & 0xff);
-    pbuf[2] = (uint8_t)((uint32_t)(opcode >> 8) & 0xff);
-    pbuf[3] = msg_sz;
-    (void)memcpy(&pbuf[4], msg_payload, msg_sz);
+    int ret = 0;
+    /* This command must be sent before any LE connection, likely
+     * after HCI init  */
+    uint8_t  buffer[1 + HCI_CMD_PACKET_HEADER_LENGTH + HCI_CMD_BT_DISABLE_LEPC_CONFIG_PARAM_LENGTH];
+    uint16_t opcode = get_opcode(HCI_CMD_VENDOR_OCG, HCI_CMD_BT_DISABLE_LEPC_TIMER_OCF);
+
+    PLATFORM_FillInHciCmdMsg(&buffer[0], opcode, 0, NULL);
+
+    ret = PLATFORM_SendHciMessage(buffer, sizeof(buffer));
+
+    if (ret != 0)
+    {
+        ret = -1;
+    }
+
+    return ret;
+}
+#endif /* gPlatformDisableLEPCTimer_d */
+
+static void PLATFORM_FillInHciCmdMsg(uint8_t *pmsg, uint16_t opcode, uint8_t msg_sz, const uint8_t *msg_payload)
+{
+    pmsg[0] = HCI_COMMAND_PACKET;
+    pmsg[1] = (uint8_t)(opcode & 0xffu);
+    pmsg[2] = (uint8_t)((opcode >> 8) & 0xffu);
+    pmsg[3] = msg_sz;
+    (void)memcpy(&pmsg[4], msg_payload, msg_sz);
 }
