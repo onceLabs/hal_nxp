@@ -292,13 +292,48 @@ const uint8_t hci_cal_data_params[HCI_CMD_STORE_BT_CAL_DATA_PARAM_LENGTH] = {
     0x00U,                            //  Action : 0x00
     0x01U,                            //  Type : Not use CheckSum
     0x1CU,                            //  File Length : 0x1C
-    0x37U, 0x35U, 0x1CU, 0x00U,
-    0x1CU, 0x00U, 0x00U, 0x00U,
-    0x01U, 0x71U, 0x0FU, 0x06U,       
-    0x28U, 0x00U, 0x00U, 0x00U,
-    0xC0U, 0xC6U, 0x2DU, 0x00U,
-    0xF7U, 0X01U, 0xD6U, 0xDAU,
-    0x95U, 0xC0U, 0xF0U, 0x00U,
+    0x37U,                            //  BT Annex Type : BT CFG
+    0x35U,                            //  Checksum : 0x35
+    0x1CU,                            //  Annex Length LSB: 0x001C
+    0x00U,                            //  Annex Length MSB: 0x001C
+    0x1CU,                            //  Pointer For Next Annex[0] : 0xFFFFFFFF
+    0x00U,                            //  Pointer For Next Annex[1] : 0xFFFFFFFF
+    0x00U,                            //  Pointer For Next Annex[2] : 0xFFFFFFFF
+    0x00U,                            //  Pointer For Next Annex[3] : 0xFFFFFFFF
+    0x01U,                            //  Annex Version : 0x01
+    0x71U,                            //  External Xtal Calibration Value : 0x71
+    0x0FU,                            //  Initial TX Power : 0x0F
+    0x06U,                            //  Front End Loss : 0x06
+    0x28U,                            //  BT Options :
+                                      //              BIT[0] Force Class 2 operation = 0
+                                      //              BIT[1] Disable Pwr Control for class 2= 0
+                                      //              BIT[2] MiscFlag(to indicagte external XTAL) = 0
+                                      //              BIT[3] Used Internal Sleep Clock = 1
+                                      //              BIT[4] BT AOA localtion support = 0
+                                      //              BIT[5] Force Class 1 mode = 1
+                                      //              BIT[7:6] Reserved
+    0x00U,                            //  AOANumberOfAntennas: 0x00
+    0x00U,                            //  RSSI Golden Low : 0
+    0x00U,                            //  RSSI Golden High : 0
+    0xC0U,                            //  UART Baud Rate[0] : 0x002DC6C0(3000000)
+    0xC6U,                            //  UART Baud Rate[1] : 0x002DC6C0(3000000)
+    0x2DU,                            //  UART Baud Rate[2] : 0x002DC6C0(3000000)
+    0x00U,                            //  UART Baud Rate[3] : 0x002DC6C0(3000000)
+    // 0xF7U,                            //  BdAddress[0]
+    // 0X01U,                            //  BdAddress[1]
+    // 0xD6U,                            //  BdAddress[2]
+    // 0xDAU,                            //  BdAddress[3]
+    // 0x95U,                            //  BdAddress[4]
+    // 0xC0U,                            //  BdAddress[5]
+    0x00U,                            //  BdAddress[0]
+    0X00U,                            //  BdAddress[1]
+    0x00U,                            //  BdAddress[2]
+    0x00U,                            //  BdAddress[3]
+    0x00U,                            //  BdAddress[4]
+    0x00U,                            //  BdAddress[5]
+    0xF0U,                            //  Encr_Key_Len[3:0]: MinEncrKeyLen = 0x0
+                                      //  Encr_Key_Len[7:4]: MaxEncrKeyLen = 0xF
+    0x00U,                            //  RegionCode : 0x00
 /*    
     0x37U,                            //  BT Annex Type : BT CFG
     0x71U,                            //  Checksum : 0x71
