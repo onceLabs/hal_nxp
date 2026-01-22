@@ -19,7 +19,7 @@
 #include <wifi_events.h>
 #include <wifi.h>
 
-#define WLAN_DRV_VERSION "v1.3.r52.z_up.p11"
+#define WLAN_DRV_VERSION "v1.3.r53.z_up.p2"
 
 #if CONFIG_WPA2_ENTP
 #include <wm_mbedtls_helper_api.h>
@@ -85,24 +85,12 @@ typedef enum
 
 /** The number of times that the Wi-Fi connection manager look for a
  *  network before giving up. */
-#if CONFIG_MAX_RESCAN_LIMIT
-#define WLAN_RESCAN_LIMIT CONFIG_MAX_RESCAN_LIMIT
-#else
-#if CONFIG_WPA_SUPP
-#define WLAN_RESCAN_LIMIT 30U
-#else
-#if CONFIG_P2P
-#define WLAN_RESCAN_LIMIT 10U
-#else
-#define WLAN_RESCAN_LIMIT 5U
-#endif /* CONFIG_P2P */
-#endif /* CONFIG_WPA_SUPP */
-#endif /* CONFIG_MAX_RESCAN_LIMIT */
+#define WLAN_RESCAN_LIMIT    CONFIG_MAX_RESCAN_LIMIT
+/** The number of times that the Wi-Fi connection manager attempts a
+* reconnection with the network before giving up. */
+#define WLAN_RECONNECT_LIMIT CONFIG_MAX_RECONNECT_LIMIT
 
 #define WLAN_11D_SCAN_LIMIT 3U
-/** The number of times that the Wi-Fi connection manager attempts a
- * reconnection with the network before giving up. */
-#define WLAN_RECONNECT_LIMIT 5U
 /** Minimum length for network names, see \ref wlan_network. */
 #define WLAN_NETWORK_NAME_MIN_LENGTH 1U
 /** Maximum length for network names, see \ref wlan_network */
@@ -1639,7 +1627,7 @@ typedef wifi_host_tx_frame_params_t wlan_host_tx_frame_params_t;
 typedef wifi_indrst_cfg_t wlan_indrst_cfg_t;
 #endif
 
-#if CONFIG_11AX
+#if (CONFIG_11AX) || (CONFIG_11AC)
 /** Configuration for TX rate setting from
  * \ref txrate_setting
  */
@@ -6348,6 +6336,8 @@ int wlan_mbo_peferch_cfg(t_u8 ch0, t_u8 pefer0, t_u8 ch1, t_u8 pefer1);
 #endif
 
 #if (CONFIG_11MC) || (CONFIG_11AZ)
+int wlan_unassoc_ftm_cfg(const t_u16 action, const t_u16 config);
+
 /**
  * Start or stop FTM (Wi-Fi fine time measurement) based on the command from CLI.
  * \param[in] action: 1: start FTM  2: stop FTM.
@@ -6797,7 +6787,9 @@ int wlan_register_csi_user_callback(int (*csi_data_recv_callback)(void *buffer, 
  * \return  WM_SUCCESS if successful
  */
 int wlan_unregister_csi_user_callback(void);
-
+wlan_csi_config_params_t * wlan_get_csi_cfg_param_default(void);
+int wlan_set_csi_cfg_param_default(wlan_csi_config_params_t *in_csi_cfg);
+void wlan_reset_csi_filter_data(void);
 
 #if CONFIG_CSI_AMI
 /** This function set Ambient Motion Index configuration.
